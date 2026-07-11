@@ -1,0 +1,26 @@
+# Source documents and local generation artifacts
+*.pptx
+*.xlsx
+*.pdf
+*.py
+*.log
+~$*
+
+.agents/
+.claude/
+pptx-preview/
+مجمع سال مالی 1404/
+
+# Unused extracted presentation media
+ppt-media/contact-sheet.jpg
+ppt-media/image*.jpg
+ppt-media/image*.jpeg
+ppt-media/image*.png
+
+# Local-only unused assets
+iranLow.js
+map.png
+database-core.svg
+image_2026-07-08_11-24-01.png
+Backgrounds/ChatGPT Image Jul 8, 2026, 12_03_36 PM.png
+Backgrounds/photo_2026-07-09_20-54-44.jpg
