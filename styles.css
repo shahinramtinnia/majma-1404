@@ -4590,6 +4590,33 @@ h1 {
   }
 }
 
+/* Mobile Chrome rendering budget: avoid expensive full-screen compositing. */
+@media (max-width: 720px) {
+  .metric-card,
+  .kpi-card,
+  .liquidity-network-card,
+  .iran-heatmap-card,
+  .financing-trend,
+  .financing-flow-card,
+  .financial-table-card,
+  .financial-insights,
+  .hero-download,
+  .hero-video__scroll-cue i {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .part1-bg__img {
+    inset: 0;
+    transform: none;
+    will-change: auto;
+  }
+
+  .presentation-shell {
+    scroll-behavior: auto;
+  }
+}
+
 /* Closing slide — uninterrupted, full-bleed loop. */
 .closing-video-section {
   position: relative;
@@ -10096,5 +10123,52 @@ body.theme-light-section .report-nav__item {
   .hero-download::before,
   .hero-download__arrow {
     transition: none;
+  }
+}
+
+/* Keep mobile content visible even before its data visualization is activated. */
+@media (max-width: 720px) {
+  .reveal-section .section-heading,
+  .reveal-section .metric-card,
+  .reveal-section .kpi-card,
+  .reveal-section .chapter-divider__visual-shell,
+  .reveal-section .chapter-divider__content,
+  .reveal-section .chapter-divider__title-line,
+  .reveal-section .focus-summary-card,
+  .reveal-section .industry-pie,
+  .reveal-section .liquidity-network-card,
+  .reveal-section .iran-heatmap-card,
+  .reveal-section .pulse-chart-card,
+  .reveal-section .pulse-side-rail,
+  .reveal-section .pulse-kpi-stack,
+  .reveal-section .annual-index-card,
+  .reveal-section .index-season-card,
+  .reveal-section .trading-value-card,
+  .reveal-section .development-tools-card,
+  .reveal-section .development-ipo-card,
+  .reveal-section .development-derivatives-card,
+  .reveal-section .development-summary-card,
+  .reveal-section .development-board,
+  .reveal-section .development-insight,
+  .reveal-section .development-ipo-panel,
+  .reveal-section .development-quote-card,
+  .reveal-section .financing-trend,
+  .reveal-section .financing-flow-card,
+  .reveal-section .development-roadmap__header,
+  .reveal-section .development-roadmap__diagram,
+  .reveal-section .data-core__header,
+  .reveal-section .data-core__rail,
+  .reveal-section .data-core__visual,
+  .reveal-section .microstructure__header,
+  .reveal-section .microstructure-rail,
+  .reveal-section .microstructure-wheel,
+  .reveal-section .microstructure__bottom,
+  .reveal-section .financial-performance__header,
+  .reveal-section .financial-table-card,
+  .reveal-section .financial-insights {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    transition-delay: 0s !important;
   }
 }

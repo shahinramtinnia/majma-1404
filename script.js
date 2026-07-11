@@ -921,25 +921,14 @@ const activateRevealSection = (section) => {
   section.classList.add("is-visible");
 };
 
-const prepareMobileVisuals = () => {
-  if (!window.matchMedia("(max-width: 720px)").matches) return;
-
-  // Build size-changing visuals before they enter the viewport so section
-  // offsets stay stable while native mobile scroll snapping is active.
-  buildIndustryPie(document.querySelector("#industry-pie"));
-  buildIranHeatmap(document.querySelector("#iran-heatmap"));
-  buildAnnualIndexChart(document.querySelector("#annual-index-chart"));
-  buildIndexSeasonChart(document.querySelector("#index-season-chart"));
-  buildTradingValueChart(document.querySelector("#trading-value-chart"));
-};
-
 const watchSections = () => {
   if (!revealSections.length) return;
-  prepareMobileVisuals();
   if (prefersReducedMotion || !("IntersectionObserver" in window)) {
     revealSections.forEach(activateRevealSection);
     return;
   }
+
+  const isMobile = window.matchMedia("(max-width: 720px), (pointer: coarse)").matches;
 
   const observer = new IntersectionObserver(
     (entries) => {
@@ -949,7 +938,11 @@ const watchSections = () => {
         observer.unobserve(entry.target);
       });
     },
-    { threshold: 0.28, root: shell || null },
+    {
+      threshold: isMobile ? 0.01 : 0.28,
+      root: shell || null,
+      rootMargin: isMobile ? "65% 0px" : "0px",
+    },
   );
 
   revealSections.forEach((section) => observer.observe(section));
@@ -1047,7 +1040,6 @@ const initPart1Background = () => {
       scrollTop > multiMarketSection.offsetTop - vh * 0.42 &&
       scrollTop < multiMarketSection.offsetTop + multiMarketSection.offsetHeight - vh * 0.38;
     bg.classList.toggle("is-multi-market-active", Boolean(multiMarketActive));
-    img.style.transform = "scale(1.16)";
   };
 
   const schedule = () => {
@@ -1060,6 +1052,35 @@ const initPart1Background = () => {
   window.addEventListener("resize", schedule);
 
   render();
+};
+
+const initVideoPlayback = () => {
+  const managedVideos = [...document.querySelectorAll(".hero-video__media, .closing-video-section__media")];
+  if (!managedVideos.length || !("IntersectionObserver" in window)) return;
+
+  const setPlayback = (media, shouldPlay) => {
+    if (shouldPlay) {
+      const playRequest = media.play();
+      if (playRequest?.catch) playRequest.catch(() => {});
+    } else if (!media.paused) {
+      media.pause();
+    }
+  };
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        setPlayback(entry.target, entry.isIntersecting && entry.intersectionRatio >= 0.12 && !document.hidden);
+      });
+    },
+    { root: shell || null, threshold: [0, 0.12, 0.5] },
+  );
+
+  managedVideos.forEach((media) => observer.observe(media));
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) managedVideos.forEach((media) => setPlayback(media, false));
+  });
 };
 
 const initSectionTheme = () => {
@@ -1158,6 +1179,7 @@ video?.addEventListener("playing", revealIntro, { once: true });
 video?.addEventListener("loadeddata", revealIntro, { once: true });
 
 tryAutoplay();
+initVideoPlayback();
 watchSections();
 enableSectionSnapScroll();
 initPart1Background();
