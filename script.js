@@ -921,8 +921,21 @@ const activateRevealSection = (section) => {
   section.classList.add("is-visible");
 };
 
+const prepareMobileVisuals = () => {
+  if (!window.matchMedia("(max-width: 720px)").matches) return;
+
+  // Build size-changing visuals before they enter the viewport so section
+  // offsets stay stable while native mobile scroll snapping is active.
+  buildIndustryPie(document.querySelector("#industry-pie"));
+  buildIranHeatmap(document.querySelector("#iran-heatmap"));
+  buildAnnualIndexChart(document.querySelector("#annual-index-chart"));
+  buildIndexSeasonChart(document.querySelector("#index-season-chart"));
+  buildTradingValueChart(document.querySelector("#trading-value-chart"));
+};
+
 const watchSections = () => {
   if (!revealSections.length) return;
+  prepareMobileVisuals();
   if (prefersReducedMotion || !("IntersectionObserver" in window)) {
     revealSections.forEach(activateRevealSection);
     return;
@@ -1111,7 +1124,10 @@ const initReportNav = () => {
       event.preventDefault();
       shell.scrollTo({
         top: target.offsetTop,
-        behavior: prefersReducedMotion ? "auto" : "smooth",
+        behavior:
+          prefersReducedMotion || window.matchMedia("(pointer: coarse)").matches
+            ? "auto"
+            : "smooth",
       });
       setOpen(false);
     });
