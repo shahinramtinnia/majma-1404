@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Vazirmatn";
+  src: url("./fonts/Vazirmatn-Variable.woff2") format("woff2-variations");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   --ink: #f5f2ea;
   --muted: rgba(245, 242, 234, 0.72);
@@ -27,6 +35,7 @@ body {
   background: var(--black);
   color: var(--ink);
   font-family: var(--font-fa);
+  font-synthesis: none;
   letter-spacing: 0;
   transition: background 480ms ease, color 320ms ease;
 }
@@ -10132,6 +10141,11 @@ body.theme-light-section .report-nav__item {
 }
 
 @media (max-width: 720px) {
+  .pulse-draw {
+    clip-path: none !important;
+    animation: none !important;
+  }
+
   .presentation-shell > section {
     position: relative;
   }
