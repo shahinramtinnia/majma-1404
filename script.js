@@ -1175,6 +1175,68 @@ const initReportNav = () => {
   updateActiveItem();
 };
 
+const initMobileNextControls = () => {
+  if (!shell || snapSections.length < 2) return;
+
+  const mobileQuery = window.matchMedia("(max-width: 720px), (pointer: coarse)");
+
+  const primeSection = (index) => {
+    const section = snapSections[index];
+    if (!section) return;
+    activateRevealSection(section);
+  };
+
+  const goToSection = (index) => {
+    const target = snapSections[index];
+    if (!target) return;
+
+    primeSection(index);
+    window.requestAnimationFrame(() => {
+      shell.scrollTo({ top: target.offsetTop, behavior: "auto" });
+    });
+  };
+
+  const addControls = () => {
+    if (!mobileQuery.matches) return;
+
+    snapSections.forEach((section, index) => {
+      if (index === 0 || index === snapSections.length - 1) return;
+      if (section.querySelector(":scope > .mobile-next-section")) return;
+
+      const nextSection = snapSections[index + 1];
+      const nextLabel = nextSection.getAttribute("aria-label") || "بخش بعدی";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "mobile-next-section";
+      button.setAttribute("aria-label", `رفتن به ${nextLabel}`);
+      button.innerHTML = `
+        <span>بخش بعدی</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m15 5-7 7 7 7" />
+        </svg>
+      `;
+
+      button.addEventListener("pointerdown", () => primeSection(index + 1), { passive: true });
+      button.addEventListener("click", () => goToSection(index + 1));
+      section.appendChild(button);
+    });
+  };
+
+  let settleTimer;
+  shell.addEventListener("scroll", () => {
+    if (!mobileQuery.matches) return;
+    window.clearTimeout(settleTimer);
+    settleTimer = window.setTimeout(() => {
+      const currentIndex = getCurrentSectionIndex();
+      primeSection(currentIndex);
+      primeSection(currentIndex + 1);
+    }, 120);
+  }, { passive: true });
+
+  addControls();
+  mobileQuery.addEventListener?.("change", addControls);
+};
+
 video?.addEventListener("playing", revealIntro, { once: true });
 video?.addEventListener("loadeddata", revealIntro, { once: true });
 
@@ -1185,3 +1247,4 @@ enableSectionSnapScroll();
 initPart1Background();
 initSectionTheme();
 initReportNav();
+initMobileNextControls();
