@@ -1347,4 +1347,3 @@ enableSectionSnapScroll();
 initPart1Background();
 initSectionTheme();
 initReportNav();
-initMobileNextControls();
