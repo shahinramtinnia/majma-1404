@@ -10142,7 +10142,7 @@ body.theme-light-section .report-nav__item {
 
 @media (max-width: 720px) {
   .presentation-shell {
-    scroll-snap-type: none !important;
+    scroll-snap-type: y proximity !important;
     scroll-behavior: auto;
     overscroll-behavior-y: contain;
   }
