@@ -907,8 +907,10 @@ const activateMarketPulseSection = (section) => {
   section.dataset.activated = "true";
   section.classList.add("is-visible");
   section.querySelectorAll("[data-count]").forEach(animateCount);
-  buildAnnualIndexChart(section.querySelector("#annual-index-chart"));
-  buildIndexSeasonChart(section.querySelector("#index-season-chart"));
+  if (!window.matchMedia("(max-width: 720px)").matches) {
+    buildAnnualIndexChart(section.querySelector("#annual-index-chart"));
+    buildIndexSeasonChart(section.querySelector("#index-season-chart"));
+  }
   buildTradingValueChart(section.querySelector("#trading-value-chart"));
 };
 
@@ -1178,7 +1180,13 @@ const initReportNav = () => {
 const initMobileNextControls = () => {
   if (!shell || snapSections.length < 2) return;
 
-  const mobileQuery = window.matchMedia("(max-width: 720px), (pointer: coarse)");
+  const mobileQuery = window.matchMedia("(max-width: 720px)");
+  const warmedSections = new Set();
+  let currentIndex = getCurrentSectionIndex();
+  let programmaticNavigation = false;
+  let navigationTimer;
+  let settleTimer;
+  let touchStartY = 0;
 
   const primeSection = (index) => {
     const section = snapSections[index];
@@ -1186,13 +1194,52 @@ const initMobileNextControls = () => {
     activateRevealSection(section);
   };
 
+  const warmSection = (index) => {
+    const section = snapSections[index];
+    if (!section || warmedSections.has(section)) return;
+    warmedSections.add(section);
+
+    primeSection(index);
+    section.querySelectorAll("img").forEach((image) => {
+      image.loading = "eager";
+      image.decode?.().catch(() => {});
+    });
+    section.querySelectorAll("video").forEach((media) => {
+      media.preload = "auto";
+      media.load();
+    });
+  };
+
+  const scheduleWarm = (index) => {
+    if (!snapSections[index]) return;
+    const run = () => warmSection(index);
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      window.setTimeout(run, 180);
+    }
+  };
+
+  const getCurrentMaxScroll = () => {
+    const section = snapSections[currentIndex];
+    if (!section) return shell.scrollTop;
+    return section.offsetTop + Math.max(0, section.offsetHeight - shell.clientHeight);
+  };
+
   const goToSection = (index) => {
     const target = snapSections[index];
     if (!target) return;
 
-    primeSection(index);
+    currentIndex = index;
+    programmaticNavigation = true;
+    warmSection(index);
+    window.clearTimeout(navigationTimer);
     window.requestAnimationFrame(() => {
       shell.scrollTo({ top: target.offsetTop, behavior: "auto" });
+      navigationTimer = window.setTimeout(() => {
+        programmaticNavigation = false;
+        scheduleWarm(index + 1);
+      }, 100);
     });
   };
 
@@ -1216,25 +1263,78 @@ const initMobileNextControls = () => {
         </svg>
       `;
 
-      button.addEventListener("pointerdown", () => primeSection(index + 1), { passive: true });
+      button.addEventListener("pointerdown", () => warmSection(index + 1), { passive: true });
       button.addEventListener("click", () => goToSection(index + 1));
       section.appendChild(button);
     });
   };
 
-  let settleTimer;
+  const scrollCue = document.querySelector(".hero-video__scroll-cue");
+  scrollCue?.addEventListener("click", (event) => {
+    if (!mobileQuery.matches) return;
+    event.preventDefault();
+    goToSection(1);
+  });
+
+  document.querySelectorAll(".report-nav__item[data-nav-target]").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (!mobileQuery.matches) return;
+      const targetIndex = snapSections.findIndex((section) => section.id === link.dataset.navTarget);
+      if (targetIndex < 0) return;
+      currentIndex = targetIndex;
+      programmaticNavigation = true;
+      warmSection(targetIndex);
+      window.clearTimeout(navigationTimer);
+      navigationTimer = window.setTimeout(() => {
+        programmaticNavigation = false;
+        scheduleWarm(targetIndex + 1);
+      }, 100);
+    });
+  });
+
+  shell.addEventListener("touchstart", (event) => {
+    if (!mobileQuery.matches || !event.touches.length) return;
+    touchStartY = event.touches[0].clientY;
+  }, { passive: true });
+
+  shell.addEventListener("touchmove", (event) => {
+    if (!mobileQuery.matches || programmaticNavigation || !event.touches.length) return;
+    const movingForward = touchStartY - event.touches[0].clientY > 3;
+    if (movingForward && shell.scrollTop >= getCurrentMaxScroll() - 1) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
   shell.addEventListener("scroll", () => {
     if (!mobileQuery.matches) return;
+
+    if (!programmaticNavigation) {
+      const section = snapSections[currentIndex];
+      const maxScroll = getCurrentMaxScroll();
+      if (shell.scrollTop > maxScroll + 1) {
+        shell.scrollTop = maxScroll;
+        return;
+      }
+      if (section && shell.scrollTop < section.offsetTop - 2) {
+        currentIndex = getCurrentSectionIndex();
+      }
+    }
+
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(() => {
-      const currentIndex = getCurrentSectionIndex();
       primeSection(currentIndex);
-      primeSection(currentIndex + 1);
+      scheduleWarm(currentIndex + 1);
     }, 120);
   }, { passive: true });
 
   addControls();
-  mobileQuery.addEventListener?.("change", addControls);
+  scheduleWarm(currentIndex + 1);
+  scheduleWarm(currentIndex + 2);
+  mobileQuery.addEventListener?.("change", () => {
+    currentIndex = getCurrentSectionIndex();
+    addControls();
+    scheduleWarm(currentIndex + 1);
+  });
 };
 
 video?.addEventListener("playing", revealIntro, { once: true });
