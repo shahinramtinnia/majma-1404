@@ -10141,6 +10141,25 @@ body.theme-light-section .report-nav__item {
 }
 
 @media (max-width: 720px) {
+  .presentation-shell {
+    scroll-snap-type: none !important;
+    scroll-behavior: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .market-pulse-layout {
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "rail"
+      "trades";
+    height: auto;
+  }
+
+  .annual-index-card,
+  .index-season-card {
+    display: none !important;
+  }
+
   .pulse-draw {
     clip-path: none !important;
     animation: none !important;
