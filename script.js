@@ -46,6 +46,22 @@ const formatFaNumber = (value, decimals = 0) =>
     minimumFractionDigits: decimals,
   }).format(value);
 
+const addSlideNumbers = () => {
+  const total = formatFaNumber(snapSections.length);
+
+  snapSections.forEach((section, index) => {
+    if (section.querySelector(":scope > .slide-number")) return;
+
+    const number = document.createElement("span");
+    number.className = "slide-number";
+    number.setAttribute("aria-hidden", "true");
+    number.textContent = `${formatFaNumber(index + 1)} از ${total}`;
+    section.appendChild(number);
+  });
+};
+
+addSlideNumbers();
+
 const animateCount = (element) => {
   if (!element || element.dataset.animated === "true") return;
 
@@ -227,7 +243,7 @@ const buildIndustryPie = (root) => {
     { key: "metal", name: "فلزات اساسی", short: "فلزات اساسی", share: 22, top: "#6f94cf", dark: "#274a79", big: true, icon: PIE_ICONS.ingot },
     { key: "multi", name: "شرکت‌های چندرشته‌ای صنعتی", short: "چندرشته‌ای صنعتی", share: 9, top: "#39c0b8", dark: "#0f726f", big: true, icon: PIE_ICONS.layers },
     { key: "oil", name: "فرآورده‌های نفتی", short: "فرآورده‌های نفتی", share: 9, top: "#ef8d37", dark: "#8d4c14", big: true, icon: PIE_ICONS.drop },
-    { key: "bank", name: "بانک‌ها و مؤسسات اعتباری", short: "بانک‌ها و مؤسسات", share: 8, top: "#8f8ff0", dark: "#464191", big: true, icon: PIE_ICONS.bank },
+    { key: "bank", name: "بانک‌ها و مؤسسات اعتباری", short: "بانک‌ها و مؤسسات مالی", share: 8, top: "#8f8ff0", dark: "#464191", big: true, icon: PIE_ICONS.bank },
     { key: "other", name: "سایر صنایع", short: "سایر صنایع", share: 26, top: "#98a4b8", dark: "#465264", big: false, icon: PIE_ICONS.grid },
   ];
 
@@ -453,9 +469,32 @@ const ACCESS_MAP_DATA = [
 ];
 
 const getHeatColor = (value) => {
-  if (value >= 1000000) return "#e7c46f";
+  if (value >= 2000000) return "#e7c46f";
   if (value >= 200000) return "#7994c7";
   return "#5f6f88";
+};
+
+const ACCESS_MAP_1404_OVERRIDES = {
+  "IR-19": { value: 2020000, pinned: true, labelDx: 108, labelDy: 28 },
+  "IR-04": { value: 370000, pinned: true, labelDx: -42, labelDy: 35 },
+  "IR-01": { value: 290000, pinned: true, labelDx: -49, labelDy: -25 },
+  "IR-25": { value: 260000, pinned: true, labelDx: 72, labelDy: 24 },
+  "IR-03": { value: 210000, pinned: true, labelDx: 82, labelDy: -18 },
+  "IR-30": { value: 203000, pinned: false },
+};
+
+const prepareAccessMapData = (mapData) => {
+  const markers = mapData.markers.map((item) => ({
+    ...item,
+    pinned: false,
+    ...(ACCESS_MAP_1404_OVERRIDES[item.provinceId] || {}),
+  }));
+  const provinceValues = markers.reduce((totals, item) => {
+    totals[item.provinceId] = (totals[item.provinceId] || 0) + item.value;
+    return totals;
+  }, {});
+
+  return { ...mapData, markers, provinceValues };
 };
 
 const MAP_REGION_LABELS = {
@@ -497,18 +536,19 @@ const buildIranHeatmap = (root) => {
   if (!root || root.dataset.built === "true") return;
   root.dataset.built = "true";
 
-  const mapData = window.IRAN_MAP;
-  if (!mapData) {
+  const sourceMapData = window.IRAN_MAP;
+  if (!sourceMapData) {
     root.innerHTML = "";
     return;
   }
+  const mapData = prepareAccessMapData(sourceMapData);
 
   const [vbX, vbY, vbw, vbh] = mapData.viewBox;
   const maxValue = Math.max(...mapData.markers.map((item) => item.value));
 
   const provincePaths = mapData.provinces.map((province) => {
     const value = mapData.provinceValues[province.id] || 0;
-    const level = value >= 1000000 ? "high" : value >= 200000 ? "mid" : value > 0 ? "low" : "base";
+    const level = value >= 2000000 ? "high" : value >= 200000 ? "mid" : value > 0 ? "low" : "base";
     return `<path class="iran-province iran-province--${level}" data-key="${province.id}" d="${province.d}"></path>`;
   }).join("");
 
@@ -532,8 +572,11 @@ const buildIranHeatmap = (root) => {
 
   const labels = mapData.markers.filter((item) => item.pinned).map((item) => {
     const label = getMapRegionLabel(item);
+    const labelX = item.x + (item.labelDx || 0);
+    const labelY = item.y + (item.labelDy ?? -42);
     return (
-      `<g class="iran-map__pin-label" data-key="${item.provinceId}" transform="translate(${item.x} ${item.y - 42})">` +
+      `<path class="iran-map__pin-connector" data-key="${item.provinceId}" d="M${item.x} ${item.y} L${labelX} ${labelY}"></path>` +
+      `<g class="iran-map__pin-label" data-key="${item.provinceId}" transform="translate(${labelX} ${labelY})">` +
       `<rect x="-76" y="-36" width="152" height="70" rx="14"></rect>` +
       `<text class="pin-label__name" y="-11">${label}</text>` +
       `<text class="pin-label__value" y="20">${formatFaNumber(toTrillionToman(item.value), 0)} همت</text>` +
@@ -587,6 +630,270 @@ const activateAccessNetworkSection = (section) => {
   section.classList.add("is-visible");
   section.querySelectorAll("[data-count]").forEach(animateCount);
   buildIranHeatmap(section.querySelector("#iran-heatmap"));
+};
+
+const buildFinancialCentersMap = (section) => {
+  const data = window.FINANCIAL_CENTER_MAP;
+  const svg = section?.querySelector("#financial-centers-map");
+  if (!data || !section || !svg || svg.dataset.built === "true") return;
+
+  svg.dataset.built = "true";
+  const NS = "http://www.w3.org/2000/svg";
+  const [vx, vy, vw, vh] = data.viewBox;
+  svg.setAttribute("viewBox", `${vx} ${vy} ${vw} ${vh}`);
+
+  const defs = document.createElementNS(NS, "defs");
+  defs.innerHTML =
+    `<linearGradient id="fc-pin-gradient" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#fff0bd"></stop>` +
+    `<stop offset="0.52" stop-color="#d7b65f"></stop>` +
+    `<stop offset="1" stop-color="#a77d25"></stop>` +
+    `</linearGradient>`;
+  svg.insertBefore(defs, svg.firstChild);
+
+  const regions = [
+    { id: "tehran", name: "تهران", city: "تهران", color: "#d7d9de", hub: [328, 223], label: [298, 196], provinces: ["Teh", "Alb", "Qom", "Qaz", "Sem"] },
+    { id: "north", name: "شمال", city: "ساری", color: "#ffd6a5", hub: [340, 178], label: [372, 150], provinces: ["Gil", "Maz", "Gol"] },
+    { id: "northwest", name: "شمال غرب", city: "تبریز", color: "#fdffb6", hub: [120, 135], label: [120, 108], provinces: ["WAz", "EAz", "Ard", "Zan"] },
+    { id: "east", name: "شرق", city: "مشهد", color: "#a0c4ff", hub: [610, 230], label: [612, 204], provinces: ["NKh", "RKh", "SKh"] },
+    { id: "west", name: "غرب", city: "کرمانشاه", color: "#bdb2ff", hub: [111, 276], label: [92, 303], provinces: ["Krm", "Krd", "Ham", "Lor", "Ilm"] },
+    { id: "central", name: "مرکزی", city: "اصفهان", color: "#9bf6ff", hub: [348, 364], label: [300, 360], provinces: ["Esf", "CMB", "Mar"] },
+    { id: "south", name: "جنوب", city: "کرمان", color: "#ffadad", hub: [536, 538], label: [562, 514], provinces: ["Hor", "SnB", "Krn", "Yzd"] },
+    { id: "southwest", name: "جنوب غرب", city: "شیراز", color: "#78d49a", hub: [376, 520], label: [318, 548], provinces: ["Khz", "KBA", "Far", "Bsh"] },
+    { id: "kish", name: "کیش", city: "کیش", color: "#f0c565", hub: [449, 663], label: [449, 690], provinces: [] },
+  ];
+
+  const regionById = Object.fromEntries(regions.map((region) => [region.id, region]));
+  const provinceToRegion = {};
+  regions.forEach((region) => region.provinces.forEach((code) => { provinceToRegion[code] = region; }));
+  const provinceTitles = Object.fromEntries(data.provinces.map((province) => [province.code, province.title]));
+
+  const info = section.querySelector("#fc-map-info");
+  const infoName = section.querySelector("#fc-map-info-name");
+  const infoCity = section.querySelector("#fc-map-info-city");
+  const infoDot = section.querySelector("#fc-map-info-dot");
+  const infoProvinces = section.querySelector("#fc-map-info-provinces");
+  const hint = section.querySelector("#fc-map-hint");
+
+  const openInfo = (region) => {
+    if (!info || !region) return;
+    infoName.textContent = `منطقه ${region.name}`;
+    infoCity.textContent = `مرکز مالی: ${region.city}`;
+    infoDot.style.background = region.color;
+    infoProvinces.innerHTML = "";
+    const titles = region.provinces.length
+      ? region.provinces.map((code) => provinceTitles[code]).filter(Boolean)
+      : ["جزیره کیش (منطقه آزاد)"];
+    titles.forEach((title) => {
+      const chip = document.createElement("span");
+      chip.textContent = title;
+      infoProvinces.appendChild(chip);
+    });
+    info.classList.add("is-open");
+    info.setAttribute("aria-hidden", "false");
+    hint?.classList.add("is-hidden");
+    svg.classList.add("has-selection");
+    svg.querySelectorAll(".fc-map-province").forEach((province) => {
+      province.classList.toggle("is-selected", province.dataset.region === region.id);
+    });
+  };
+
+  const closeInfo = () => {
+    info?.classList.remove("is-open");
+    info?.setAttribute("aria-hidden", "true");
+    svg.classList.remove("has-selection");
+    svg.querySelectorAll(".fc-map-province.is-selected").forEach((province) => province.classList.remove("is-selected"));
+  };
+
+  section.querySelector("#fc-map-info-close")?.addEventListener("click", closeInfo);
+  svg.addEventListener("click", closeInfo);
+
+  const provinceGroup = svg.querySelector(".fc-map-provinces");
+  const provincePaths = {};
+  data.provinces.forEach((province) => {
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", province.d);
+    path.dataset.code = province.code;
+    const region = provinceToRegion[province.code];
+    if (region) {
+      path.dataset.region = region.id;
+      path.classList.add("fc-map-province");
+      path.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openInfo(region);
+      });
+    }
+    provinceGroup.appendChild(path);
+    provincePaths[province.code] = path;
+  });
+
+  const kish = document.createElementNS(NS, "ellipse");
+  kish.setAttribute("cx", "449");
+  kish.setAttribute("cy", "667");
+  kish.setAttribute("rx", "18");
+  kish.setAttribute("ry", "10");
+  kish.setAttribute("fill", "rgba(101, 122, 151, 0.22)");
+  kish.setAttribute("stroke", "rgba(222, 231, 243, 0.48)");
+  kish.setAttribute("stroke-width", "0.8");
+  kish.dataset.region = "kish";
+  kish.classList.add("fc-map-province");
+  kish.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openInfo(regionById.kish);
+  });
+  provinceGroup.appendChild(kish);
+
+  const pinDefinitions = [
+    [225.8, 131.7, "north"], [645.7, 379.4, "east"], [180.3, 170.8, "northwest"],
+    [205.1, 421.7, "southwest"], [379.9, 526.8, "southwest"], [236.9, 193, "tehran"],
+    [106.1, 98, "northwest"], [289, 263.9, "tehran"], [643.4, 194.9, "east"],
+    [350.4, 339, "central"], [374, 184.3, "north"], [504.4, 627.5, "south"],
+    [549.2, 513.2, "south"], [480.5, 368.9, "south"], [188.3, 255.1, "west"],
+    [383.1, 232.3, "tehran"], [41.7, 112.4, "northwest"], [448.4, 659.5, "kish"],
+    [107.9, 276, "west"], [162.1, 66.3, "northwest"], [280.4, 199.2, "tehran"],
+  ];
+  const pinGroup = svg.querySelector(".fc-map-pins");
+  const pinRadius = 4.6;
+  const pinCenterY = -2 * pinRadius;
+  const pinPath =
+    `M0 0 C ${-pinRadius * 0.9} ${pinCenterY * 0.55}, ${-pinRadius} ${pinCenterY + pinRadius * 0.2}, ${-pinRadius} ${pinCenterY} ` +
+    `A ${pinRadius} ${pinRadius} 0 1 1 ${pinRadius} ${pinCenterY} ` +
+    `C ${pinRadius} ${pinCenterY + pinRadius * 0.2}, ${pinRadius * 0.9} ${pinCenterY * 0.55}, 0 0 Z`;
+
+  const pins = pinDefinitions.map(([x, y, regionId]) => {
+    const wrap = document.createElementNS(NS, "g");
+    wrap.setAttribute("transform", `translate(${x} ${y})`);
+    const marker = document.createElementNS(NS, "g");
+    marker.setAttribute("class", "fc-map-pin");
+    const body = document.createElementNS(NS, "path");
+    body.setAttribute("class", "fc-pin-body");
+    body.setAttribute("d", pinPath);
+    body.setAttribute("fill", "url(#fc-pin-gradient)");
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("class", "fc-pin-dot");
+    dot.setAttribute("cy", String(pinCenterY));
+    dot.setAttribute("r", String(pinRadius * 0.42));
+    marker.append(body, dot);
+    wrap.appendChild(marker);
+    pinGroup.appendChild(wrap);
+    const [targetX, targetY] = regionById[regionId].hub;
+    return { wrap, marker, x, y, targetX, targetY };
+  });
+
+  const hubGroup = svg.querySelector(".fc-map-hubs");
+  const hubs = regions.map((region) => {
+    const hub = document.createElementNS(NS, "g");
+    hub.setAttribute("class", "fc-map-hub");
+    hub.setAttribute("transform", `translate(${region.hub[0]} ${region.hub[1]})`);
+    hub.innerHTML =
+      `<circle class="fc-map-hub__ping" r="7" stroke="${region.color}"></circle>` +
+      `<circle class="fc-map-hub__ring" r="6" stroke="${region.color}"></circle>` +
+      `<circle class="fc-map-hub__core" r="3.4" fill="${region.color}"></circle>`;
+    hub.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openInfo(region);
+    });
+    hubGroup.appendChild(hub);
+    return hub;
+  });
+
+  const labelGroup = svg.querySelector(".fc-map-labels");
+  const labels = regions.map((region) => {
+    const label = document.createElementNS(NS, "foreignObject");
+    label.setAttribute("class", "fc-map-label");
+    label.setAttribute("x", String(region.label[0] - 60));
+    label.setAttribute("y", String(region.label[1] - 10));
+    label.setAttribute("width", "120");
+    label.setAttribute("height", "22");
+    const box = document.createElement("div");
+    const chip = document.createElement("span");
+    chip.textContent = region.name;
+    chip.style.background = region.color;
+    chip.style.color = "#102043";
+    chip.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openInfo(region);
+    });
+    box.appendChild(chip);
+    label.appendChild(box);
+    labelGroup.appendChild(label);
+    return label;
+  });
+
+  const caption = section.querySelector("#fc-map-caption");
+  const easeInOut = (value) => value < 0.5 ? 2 * value * value : 1 - ((-2 * value + 2) ** 2) / 2;
+  const lerp = (start, end, value) => start + (end - start) * value;
+
+  const showFinalState = () => {
+    section.classList.add("fc-map-ready");
+    regions.forEach((region, index) => {
+      region.provinces.forEach((code) => {
+        if (provincePaths[code]) provincePaths[code].style.fill = region.color;
+      });
+      if (region.id === "kish") kish.style.fill = region.color;
+      hubs[index].classList.add("is-on");
+      labels[index].classList.add("is-on");
+    });
+    caption?.classList.remove("stage-before");
+    caption?.classList.add("stage-after");
+    hint?.classList.add("is-on");
+  };
+
+  if (prefersReducedMotion) {
+    showFinalState();
+    return;
+  }
+
+  section.classList.add("fc-map-ready");
+  const popStart = 260;
+  pins.forEach((pin, index) => {
+    window.setTimeout(() => pin.marker.classList.add("is-on"), popStart + index * 42);
+  });
+  window.setTimeout(() => caption?.classList.add("stage-before"), popStart + 220);
+
+  const flightStart = popStart + pins.length * 42 + 460;
+  const flightDuration = 820;
+  pins.forEach((pin, index) => {
+    window.setTimeout(() => {
+      let startedAt;
+      const fly = (timestamp) => {
+        startedAt ??= timestamp;
+        const progress = Math.min((timestamp - startedAt) / flightDuration, 1);
+        const eased = easeInOut(progress);
+        const currentX = lerp(pin.x, pin.targetX, eased);
+        const currentY = lerp(pin.y, pin.targetY, eased);
+        pin.wrap.setAttribute("transform", `translate(${currentX.toFixed(1)} ${currentY.toFixed(1)})`);
+        pin.marker.style.opacity = progress < 0.55 ? "1" : String(Math.max(0, 1 - (progress - 0.55) / 0.45));
+        if (progress < 1) window.requestAnimationFrame(fly);
+      };
+      window.requestAnimationFrame(fly);
+    }, flightStart + index * 24);
+  });
+
+  const regionStart = flightStart + 560;
+  regions.forEach((region, index) => {
+    window.setTimeout(() => {
+      region.provinces.forEach((code) => {
+        if (provincePaths[code]) provincePaths[code].style.fill = region.color;
+      });
+      if (region.id === "kish") kish.style.fill = region.color;
+      hubs[index].classList.add("is-on");
+      labels[index].classList.add("is-on");
+    }, regionStart + index * 115);
+  });
+
+  window.setTimeout(() => {
+    caption?.classList.remove("stage-before");
+    caption?.classList.add("stage-after");
+  }, flightStart + 680);
+  window.setTimeout(() => hint?.classList.add("is-on"), regionStart + regions.length * 115 + 260);
+};
+
+const activateFinancialCentersSection = (section) => {
+  if (!section || section.dataset.activated === "true") return;
+  section.dataset.activated = "true";
+  section.classList.add("is-visible");
+  buildFinancialCentersMap(section);
 };
 
 const toFaDigits = (value) => String(value).replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[digit]);
@@ -919,6 +1226,7 @@ const activateRevealSection = (section) => {
   if (section.id === "today") return activateTodaySection(section);
   if (section.id === "market-focus") return activateMarketFocusSection(section);
   if (section.id === "access-network") return activateAccessNetworkSection(section);
+  if (section.id === "financial-centers") return activateFinancialCentersSection(section);
   if (section.id === "market-pulse") return activateMarketPulseSection(section);
   section.classList.add("is-visible");
 };
@@ -1337,6 +1645,82 @@ const initMobileNextControls = () => {
   });
 };
 
+const initDevelopmentMixTooltip = () => {
+  const plot = document.querySelector("#development-rebuilt .development-mix-plot");
+  if (!plot) return;
+
+  const categoryLabels = {
+    "is-shares": "سهام",
+    "is-funds": "صندوق‌ها",
+    "is-derivatives": "مشتقه",
+    "is-debt": "بدهی",
+    "is-professional": "سرمایه‌گذاری حرفه‌ای",
+  };
+  const toPersianDigits = (value) =>
+    value.replace(/\d/g, (digit) => "۰۱۲۳۴۵۶۷۸۹"[Number(digit)]).replace(".", "٫");
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "tooltip development-mix-tooltip";
+  tooltip.setAttribute("role", "status");
+  tooltip.setAttribute("aria-live", "polite");
+  tooltip.setAttribute("aria-hidden", "true");
+  tooltip.innerHTML = "<span></span><strong></strong>";
+  plot.appendChild(tooltip);
+
+  let activeSegment = null;
+
+  const positionTooltip = (segment) => {
+    const plotRect = plot.getBoundingClientRect();
+    const segmentRect = segment.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const gap = 8;
+    const padding = 5;
+
+    let left = segmentRect.left - plotRect.left + segmentRect.width / 2 - tooltipRect.width / 2;
+    let top = segmentRect.top - plotRect.top - tooltipRect.height - gap;
+
+    left = Math.max(padding, Math.min(left, plotRect.width - tooltipRect.width - padding));
+    if (top < padding) top = padding;
+    top = Math.max(padding, Math.min(top, plotRect.height - tooltipRect.height - padding));
+
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  };
+
+  const showTooltip = (segment) => {
+    const year = segment.closest(".development-mix-year")?.querySelector(":scope > span")?.textContent?.trim();
+    const categoryClass = Object.keys(categoryLabels).find((className) => segment.classList.contains(className));
+    const rawValue = segment.style.getPropertyValue("--v").trim();
+    if (!year || !categoryClass || !rawValue) return;
+
+    activeSegment?.classList.remove("is-hovered");
+    activeSegment = segment;
+    activeSegment.classList.add("is-hovered");
+
+    tooltip.querySelector("span").textContent = `${categoryLabels[categoryClass]} • ${year}`;
+    tooltip.querySelector("strong").textContent = `${toPersianDigits(rawValue)}٪`;
+    tooltip.style.setProperty("--tooltip-accent", getComputedStyle(segment).backgroundColor);
+    tooltip.classList.add("is-visible");
+    tooltip.setAttribute("aria-hidden", "false");
+
+    window.requestAnimationFrame(() => positionTooltip(segment));
+  };
+
+  const hideTooltip = () => {
+    activeSegment?.classList.remove("is-hovered");
+    activeSegment = null;
+    tooltip.classList.remove("is-visible");
+    tooltip.setAttribute("aria-hidden", "true");
+  };
+
+  plot.querySelectorAll(".development-mix-segment").forEach((segment) => {
+    segment.addEventListener("pointerenter", () => showTooltip(segment));
+    segment.addEventListener("pointerleave", hideTooltip);
+  });
+
+  plot.addEventListener("pointerleave", hideTooltip);
+};
+
 video?.addEventListener("playing", revealIntro, { once: true });
 video?.addEventListener("loadeddata", revealIntro, { once: true });
 
@@ -1347,3 +1731,4 @@ enableSectionSnapScroll();
 initPart1Background();
 initSectionTheme();
 initReportNav();
+initDevelopmentMixTooltip();
