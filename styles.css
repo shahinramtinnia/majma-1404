@@ -2208,7 +2208,37 @@ h1 {
   stroke: rgba(222, 231, 243, 0.48);
   stroke-width: 0.8;
   stroke-linejoin: round;
-  transition: fill 520ms ease, filter 240ms ease, opacity 240ms ease;
+  transition: fill 920ms cubic-bezier(0.22, 1, 0.36, 1), filter 240ms ease, opacity 240ms ease;
+}
+
+.fc-map-routes {
+  pointer-events: none;
+}
+
+.fc-map-flight-path {
+  fill: none;
+  stroke: rgba(240, 197, 101, 0.72);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+.fc-map-flight-path.is-active {
+  animation: fcRouteTrace var(--flight-duration, 1800ms) cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.fc-map-flight-path.is-active.is-complete {
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+@keyframes fcRouteTrace {
+  0% { stroke-dashoffset: 1; opacity: 0; }
+  14% { opacity: 0.62; }
+  78% { stroke-dashoffset: 0; opacity: 0.5; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
 }
 
 .fc-map-province {
@@ -2248,6 +2278,15 @@ h1 {
   fill: #fff8e5;
 }
 
+.fc-map-pin.is-travelling .fc-pin-body {
+  animation: fcPinTravelGlow 820ms ease-in-out infinite alternate;
+}
+
+@keyframes fcPinTravelGlow {
+  from { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 1px rgba(240, 197, 101, 0.18)); }
+  to { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.32)) drop-shadow(0 0 6px rgba(240, 197, 101, 0.78)); }
+}
+
 .fc-map-hub {
   opacity: 0;
   transform: scale(0);
@@ -2259,6 +2298,32 @@ h1 {
 .fc-map-hub.is-on {
   opacity: 1;
   transform: scale(1);
+}
+
+.fc-map-hub.is-forming .fc-map-hub__core {
+  animation: fcHubCoreBloom 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.fc-map-hub.is-forming .fc-map-hub__ring {
+  animation: fcHubRingForm 1050ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.fc-map-hub__core,
+.fc-map-hub__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes fcHubCoreBloom {
+  0% { transform: scale(0.2); opacity: 0; }
+  55% { transform: scale(1.9); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fcHubRingForm {
+  0% { transform: scale(0.35); opacity: 0; }
+  52% { transform: scale(2.15); opacity: 0.95; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .fc-map-hub__core {
@@ -2659,9 +2724,16 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   .fc-map-provinces,
+  .fc-map-flight-path,
   .fc-map-pin,
+  .fc-map-pin .fc-pin-body,
+  .fc-map-hub,
+  .fc-map-hub__core,
+  .fc-map-hub__ring,
+  .fc-map-hub__ping,
   .fc-map-label span,
   .fc-business-lines article {
+    animation: none !important;
     transition: none !important;
   }
 }
@@ -6976,20 +7048,6 @@ h1 {
   overflow: hidden;
 }
 
-.institutional-line-chart__badge {
-  position: absolute;
-  inset-inline-start: 420px;
-  inset-block-start: 126px;
-  z-index: 1;
-  padding: 8px 12px;
-  border-radius: 999px;
-  color: #07111d;
-  background: #f0c565;
-  font-size: 12px;
-  font-weight: 900;
-  box-shadow: 0 10px 22px rgba(240, 197, 101, 0.18);
-}
-
 .institutional-line-chart__svg {
   width: 100%;
   height: 100%;
@@ -8146,12 +8204,6 @@ h1 {
     min-height: 330px;
   }
 
-  .institutional-line-chart__badge {
-    inset-inline-start: auto;
-    inset-inline-end: 20px;
-    inset-block-start: 18px;
-  }
-
   .development-board__head {
     align-items: start;
     flex-direction: column;
@@ -8788,12 +8840,6 @@ h1 {
 
   .institutional-line-chart {
     min-height: 280px;
-  }
-
-  .institutional-line-chart__badge {
-    inset-inline-start: auto;
-    inset-inline-end: 20px;
-    inset-block-start: 18px;
   }
 
   .institutional-info-card {
