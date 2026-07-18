@@ -652,9 +652,10 @@ const buildFinancialCentersMap = (section) => {
   svg.insertBefore(defs, svg.firstChild);
 
   const regions = [
-    { id: "tehran", name: "تهران", city: "تهران", color: "#d7d9de", hub: [328, 223], label: [298, 196], provinces: ["Teh", "Alb", "Qom", "Qaz", "Sem"] },
+    { id: "tehran", name: "تهران", city: "تهران", color: "#d7d9de", hub: [328, 223], label: [332, 246], provinces: ["Teh", "Sem", "Qom"] },
+    { id: "zanjan", name: "زنجان", city: "زنجان", color: "#f6b8d1", hub: [236, 193], label: [228, 218], provinces: ["Zan", "Alb", "Qaz"] },
     { id: "north", name: "شمال", city: "ساری", color: "#ffd6a5", hub: [340, 178], label: [372, 150], provinces: ["Gil", "Maz", "Gol"] },
-    { id: "northwest", name: "شمال غرب", city: "تبریز", color: "#fdffb6", hub: [120, 135], label: [120, 108], provinces: ["WAz", "EAz", "Ard", "Zan"] },
+    { id: "northwest", name: "شمال غرب", city: "تبریز", color: "#fdffb6", hub: [120, 135], label: [120, 108], provinces: ["WAz", "EAz", "Ard"] },
     { id: "east", name: "شرق", city: "مشهد", color: "#a0c4ff", hub: [610, 230], label: [612, 204], provinces: ["NKh", "RKh", "SKh"] },
     { id: "west", name: "غرب", city: "کرمانشاه", color: "#bdb2ff", hub: [111, 276], label: [92, 303], provinces: ["Krm", "Krd", "Ham", "Lor", "Ilm"] },
     { id: "central", name: "مرکزی", city: "اصفهان", color: "#9bf6ff", hub: [348, 364], label: [300, 360], provinces: ["Esf", "CMB", "Mar"] },
@@ -744,14 +745,15 @@ const buildFinancialCentersMap = (section) => {
   provinceGroup.appendChild(kish);
 
   const pinDefinitions = [
-    [225.8, 131.7, "north"], [645.7, 379.4, "east"], [180.3, 170.8, "northwest"],
-    [205.1, 421.7, "southwest"], [379.9, 526.8, "southwest"], [236.9, 193, "tehran"],
+    [225.8, 131.7, "north"], [645.7, 379.4, "east"], [180.3, 170.8, "zanjan"],
+    [205.1, 421.7, "southwest"], [379.9, 526.8, "southwest"], [236.9, 193, "zanjan"],
     [106.1, 98, "northwest"], [289, 263.9, "tehran"], [643.4, 194.9, "east"],
     [350.4, 339, "central"], [374, 184.3, "north"], [504.4, 627.5, "south"],
     [549.2, 513.2, "south"], [480.5, 368.9, "south"], [188.3, 255.1, "west"],
     [383.1, 232.3, "tehran"], [41.7, 112.4, "northwest"], [448.4, 659.5, "kish"],
-    [107.9, 276, "west"], [162.1, 66.3, "northwest"], [280.4, 199.2, "tehran"],
+    [107.9, 276, "west"], [162.1, 66.3, "northwest"], [280.4, 199.2, "zanjan"],
   ];
+  const routeGroup = svg.querySelector(".fc-map-routes");
   const pinGroup = svg.querySelector(".fc-map-pins");
   const pinRadius = 4.6;
   const pinCenterY = -2 * pinRadius;
@@ -760,7 +762,24 @@ const buildFinancialCentersMap = (section) => {
     `A ${pinRadius} ${pinRadius} 0 1 1 ${pinRadius} ${pinCenterY} ` +
     `C ${pinRadius} ${pinCenterY + pinRadius * 0.2}, ${pinRadius * 0.9} ${pinCenterY * 0.55}, 0 0 Z`;
 
-  const pins = pinDefinitions.map(([x, y, regionId]) => {
+  const pins = pinDefinitions.map(([x, y, regionId], index) => {
+    const [targetX, targetY] = regionById[regionId].hub;
+    const dx = targetX - x;
+    const dy = targetY - y;
+    const distance = Math.hypot(dx, dy);
+    const bend = distance > 8 ? Math.min(34, Math.max(8, distance * 0.13)) : 0;
+    const direction = index % 2 === 0 ? 1 : -1;
+    const normalX = distance ? -dy / distance : 0;
+    const normalY = distance ? dx / distance : 0;
+    const controlX = (x + targetX) / 2 + normalX * bend * direction;
+    const controlY = (y + targetY) / 2 + normalY * bend * direction;
+
+    const route = document.createElementNS(NS, "path");
+    route.setAttribute("class", "fc-map-flight-path");
+    route.setAttribute("d", `M ${x} ${y} Q ${controlX.toFixed(1)} ${controlY.toFixed(1)} ${targetX} ${targetY}`);
+    route.setAttribute("pathLength", "1");
+    routeGroup.appendChild(route);
+
     const wrap = document.createElementNS(NS, "g");
     wrap.setAttribute("transform", `translate(${x} ${y})`);
     const marker = document.createElementNS(NS, "g");
@@ -776,8 +795,7 @@ const buildFinancialCentersMap = (section) => {
     marker.append(body, dot);
     wrap.appendChild(marker);
     pinGroup.appendChild(wrap);
-    const [targetX, targetY] = regionById[regionId].hub;
-    return { wrap, marker, x, y, targetX, targetY };
+    return { wrap, marker, route, regionId, x, y, targetX, targetY, controlX, controlY };
   });
 
   const hubGroup = svg.querySelector(".fc-map-hubs");
@@ -821,8 +839,13 @@ const buildFinancialCentersMap = (section) => {
   });
 
   const caption = section.querySelector("#fc-map-caption");
-  const easeInOut = (value) => value < 0.5 ? 2 * value * value : 1 - ((-2 * value + 2) ** 2) / 2;
-  const lerp = (start, end, value) => start + (end - start) * value;
+  const easeInOutCubic = (value) => value < 0.5
+    ? 4 * value * value * value
+    : 1 - ((-2 * value + 2) ** 3) / 2;
+  const quadraticPoint = (start, control, end, value) => {
+    const inverse = 1 - value;
+    return inverse * inverse * start + 2 * inverse * value * control + value * value * end;
+  };
 
   const showFinalState = () => {
     section.classList.add("fc-map-ready");
@@ -845,48 +868,63 @@ const buildFinancialCentersMap = (section) => {
   }
 
   section.classList.add("fc-map-ready");
-  const popStart = 260;
+  const popStart = 380;
+  const popStagger = 65;
   pins.forEach((pin, index) => {
-    window.setTimeout(() => pin.marker.classList.add("is-on"), popStart + index * 42);
+    window.setTimeout(() => pin.marker.classList.add("is-on"), popStart + index * popStagger);
   });
-  window.setTimeout(() => caption?.classList.add("stage-before"), popStart + 220);
+  window.setTimeout(() => caption?.classList.add("stage-before"), popStart + 260);
 
-  const flightStart = popStart + pins.length * 42 + 460;
-  const flightDuration = 820;
+  const flightStart = popStart + pins.length * popStagger + 720;
+  const flightDuration = 1800;
+  const flightStagger = 55;
+  const regionArrivals = Object.fromEntries(regions.map((region) => [region.id, flightStart]));
   pins.forEach((pin, index) => {
+    const pinFlightStart = flightStart + index * flightStagger;
+    const pinArrival = pinFlightStart + flightDuration;
+    regionArrivals[pin.regionId] = Math.max(regionArrivals[pin.regionId], pinArrival);
     window.setTimeout(() => {
+      pin.route.style.setProperty("--flight-duration", `${flightDuration}ms`);
+      pin.route.classList.add("is-active");
+      pin.marker.classList.add("is-travelling");
       let startedAt;
       const fly = (timestamp) => {
         startedAt ??= timestamp;
         const progress = Math.min((timestamp - startedAt) / flightDuration, 1);
-        const eased = easeInOut(progress);
-        const currentX = lerp(pin.x, pin.targetX, eased);
-        const currentY = lerp(pin.y, pin.targetY, eased);
+        const eased = easeInOutCubic(progress);
+        const currentX = quadraticPoint(pin.x, pin.controlX, pin.targetX, eased);
+        const currentY = quadraticPoint(pin.y, pin.controlY, pin.targetY, eased);
         pin.wrap.setAttribute("transform", `translate(${currentX.toFixed(1)} ${currentY.toFixed(1)})`);
-        pin.marker.style.opacity = progress < 0.55 ? "1" : String(Math.max(0, 1 - (progress - 0.55) / 0.45));
-        if (progress < 1) window.requestAnimationFrame(fly);
+        pin.marker.style.opacity = progress < 0.76 ? "1" : String(Math.max(0, 1 - (progress - 0.76) / 0.24));
+        if (progress < 1) {
+          window.requestAnimationFrame(fly);
+        } else {
+          pin.marker.classList.remove("is-travelling");
+          pin.route.classList.add("is-complete");
+        }
       };
       window.requestAnimationFrame(fly);
-    }, flightStart + index * 24);
+    }, pinFlightStart);
   });
 
-  const regionStart = flightStart + 560;
   regions.forEach((region, index) => {
     window.setTimeout(() => {
       region.provinces.forEach((code) => {
         if (provincePaths[code]) provincePaths[code].style.fill = region.color;
       });
       if (region.id === "kish") kish.style.fill = region.color;
-      hubs[index].classList.add("is-on");
-      labels[index].classList.add("is-on");
-    }, regionStart + index * 115);
+      hubs[index].classList.add("is-on", "is-forming");
+      window.setTimeout(() => labels[index].classList.add("is-on"), 240);
+      window.setTimeout(() => hubs[index].classList.remove("is-forming"), 1100);
+    }, regionArrivals[region.id] + 80);
   });
 
+  const finalArrival = Math.max(...Object.values(regionArrivals));
   window.setTimeout(() => {
     caption?.classList.remove("stage-before");
     caption?.classList.add("stage-after");
-  }, flightStart + 680);
-  window.setTimeout(() => hint?.classList.add("is-on"), regionStart + regions.length * 115 + 260);
+  }, finalArrival + 420);
+  window.setTimeout(() => hint?.classList.add("is-on"), finalArrival + 1050);
 };
 
 const activateFinancialCentersSection = (section) => {
