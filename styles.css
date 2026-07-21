@@ -1568,7 +1568,7 @@ h1 {
   width: clamp(126px, 11.6vw, 156px);
   aspect-ratio: 1;
   border-radius: 50%;
-  background: conic-gradient(#f0c565 0 9.4%, rgba(255, 255, 255, 0.075) 9.4% 100%);
+  background: conic-gradient(#f0c565 0 4.7%, rgba(255, 255, 255, 0.075) 4.7% 100%);
   box-shadow: 0 0 34px rgba(240, 197, 101, 0.08);
 }
 
@@ -9726,7 +9726,7 @@ body.theme-light-section .report-nav__item {
 
 .horizon-programs--focused {
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 10px;
 }
 
 .horizon-programs--focused article {
@@ -9734,8 +9734,8 @@ body.theme-light-section .report-nav__item {
   align-items: center;
   justify-items: stretch;
   gap: 16px;
-  min-height: 148px;
-  padding: 20px 24px;
+  min-height: 116px;
+  padding: 15px 24px;
   text-align: right;
 }
 
@@ -9747,6 +9747,14 @@ body.theme-light-section .report-nav__item {
   width: 52px;
   height: 52px;
   justify-self: center;
+}
+
+.horizon-programs__icon {
+  justify-self: center;
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  filter: invert(52%) sepia(79%) saturate(770%) hue-rotate(358deg) brightness(91%) contrast(91%);
 }
 
 .horizon-programs--focused strong {
